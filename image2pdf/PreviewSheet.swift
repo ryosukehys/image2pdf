@@ -53,7 +53,7 @@ struct PreviewSheet: View {
 
     /// Recompute the preview whenever any setting that affects layout changes.
     private var regenerationKey: String {
-        "\(model.images.count)-\(model.layout.rawValue)-\(model.pageSize.rawValue)-\(model.orientation.rawValue)-\(Int(model.margin))-\(Int(model.spacing))-\(model.showPageNumbers)-\(model.showImageNumbers)"
+        "\(model.images.count)-\(model.layout.rawValue)-\(model.pageSize.rawValue)-\(model.orientation.rawValue)-\(Int(model.margin))-\(Int(model.spacing))-\(model.showPageNumbers)-\(model.showImageNumbers)-\(model.alignment.rawValue)-\(model.fillCells)"
     }
 
     private func exportURL() -> URL? {

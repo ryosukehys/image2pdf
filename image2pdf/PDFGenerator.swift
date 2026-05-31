@@ -24,6 +24,11 @@ enum PDFGenerator {
         /// Draw a small sequence-number badge on each image so the order stays
         /// clear even when several photos share a page.
         var showImageNumbers: Bool = true
+        /// Where each image sits inside its cell when it doesn't fill it.
+        var alignment: ImageAlignment = .center
+        /// Fill each cell completely (cropping overflow) so images are tiled
+        /// with no gaps, instead of fitting them with whitespace.
+        var fillCells: Bool = false
     }
 
     /// Builds PDF data from the given images. Returns nil when there are no images.
@@ -72,7 +77,10 @@ enum PDFGenerator {
                      margin: options.margin,
                      spacing: options.spacing,
                      startIndex: index,
-                     showImageNumbers: options.showImageNumbers)
+                     showImageNumbers: options.showImageNumbers,
+                     alignment: options.alignment,
+                     fillCells: options.fillCells,
+                     context: context.cgContext)
 
                 // Drawn last so it sits on top, and computed independently of the
                 // image cells so it never changes the printed image sizes.
@@ -170,7 +178,10 @@ enum PDFGenerator {
                              margin: CGFloat,
                              spacing: CGFloat,
                              startIndex: Int,
-                             showImageNumbers: Bool) {
+                             showImageNumbers: Bool,
+                             alignment: ImageAlignment,
+                             fillCells: Bool,
+                             context: CGContext) {
         let cell = cellSize(in: pageRect, rows: rows, cols: cols, margin: margin, spacing: spacing)
         let cellWidth = cell.width
         let cellHeight = cell.height
@@ -183,12 +194,26 @@ enum PDFGenerator {
             let cellY = margin + CGFloat(row) * (cellHeight + spacing)
             let cell = CGRect(x: cellX, y: cellY, width: cellWidth, height: cellHeight)
 
-            let target = aspectFitRect(for: image.pixelSize, in: cell)
-            image.draw(in: target)
+            // In fill mode the image covers the whole cell (cropping overflow),
+            // leaving no gaps; the visible area is the cell itself. In fit mode
+            // the image keeps its aspect ratio and the visible area is `target`.
+            let visibleRect: CGRect
+            if fillCells {
+                let fillRect = aspectFillRect(for: image.pixelSize, in: cell, alignment: alignment)
+                context.saveGState()
+                context.clip(to: cell)
+                image.draw(in: fillRect)
+                context.restoreGState()
+                visibleRect = cell
+            } else {
+                let target = aspectFitRect(for: image.pixelSize, in: cell, alignment: alignment)
+                image.draw(in: target)
+                visibleRect = target
+            }
 
             // Overlaid on top of the image; does not affect the image size.
             if showImageNumbers {
-                drawImageNumberBadge(startIndex + i + 1, in: target)
+                drawImageNumberBadge(startIndex + i + 1, in: visibleRect)
             }
         }
     }
@@ -242,14 +267,34 @@ enum PDFGenerator {
     }
 
     /// Returns the rect that fits `imageSize` inside `bounds` while preserving
-    /// aspect ratio and centering the result.
-    private static func aspectFitRect(for imageSize: CGSize, in bounds: CGRect) -> CGRect {
+    /// aspect ratio, anchoring the result according to `alignment` (which side
+    /// the leftover whitespace is pushed to). Defaults to centering.
+    private static func aspectFitRect(for imageSize: CGSize,
+                                      in bounds: CGRect,
+                                      alignment: ImageAlignment = .center) -> CGRect {
         guard imageSize.width > 0, imageSize.height > 0 else { return bounds }
         let scale = min(bounds.width / imageSize.width, bounds.height / imageSize.height)
         let width = imageSize.width * scale
         let height = imageSize.height * scale
-        let x = bounds.midX - width / 2
-        let y = bounds.midY - height / 2
+        let (hAnchor, vAnchor) = alignment.anchor
+        let x = bounds.minX + (bounds.width - width) * hAnchor
+        let y = bounds.minY + (bounds.height - height) * vAnchor
+        return CGRect(x: x, y: y, width: width, height: height)
+    }
+
+    /// Returns the rect that fills `bounds` completely while preserving aspect
+    /// ratio (overflow extends beyond `bounds` and is expected to be clipped).
+    /// `alignment` decides which part of the image stays visible.
+    private static func aspectFillRect(for imageSize: CGSize,
+                                       in bounds: CGRect,
+                                       alignment: ImageAlignment = .center) -> CGRect {
+        guard imageSize.width > 0, imageSize.height > 0 else { return bounds }
+        let scale = max(bounds.width / imageSize.width, bounds.height / imageSize.height)
+        let width = imageSize.width * scale
+        let height = imageSize.height * scale
+        let (hAnchor, vAnchor) = alignment.anchor
+        let x = bounds.minX + (bounds.width - width) * hAnchor
+        let y = bounds.minY + (bounds.height - height) * vAnchor
         return CGRect(x: x, y: y, width: width, height: height)
     }
 }

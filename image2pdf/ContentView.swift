@@ -93,6 +93,15 @@ struct ContentView: View {
                     .pickerStyle(.segmented)
                 }
 
+                Toggle("隙間なく敷き詰める（はみ出しは切り取り）", isOn: $model.fillCells)
+
+                Picker(model.fillCells ? "残す位置（はみ出しの切り取り基準）" : "画像の配置（余白の寄せ方）",
+                       selection: $model.alignment) {
+                    ForEach(ImageAlignment.allCases) { alignment in
+                        Text(alignment.displayName).tag(alignment)
+                    }
+                }
+
                 VStack(alignment: .leading) {
                     Text("Margin: \(Int(model.margin)) pt")
                     Slider(value: $model.margin, in: 0...96, step: 2)
