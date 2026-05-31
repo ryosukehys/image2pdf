@@ -10,7 +10,11 @@ import Foundation
 
 /// Paper size measured in PDF points (1 pt = 1/72 inch).
 enum PageSize: String, CaseIterable, Identifiable {
+    case a3
     case a4
+    case a5
+    case b4
+    case b5
     case letter
     case fitImage
 
@@ -18,20 +22,35 @@ enum PageSize: String, CaseIterable, Identifiable {
 
     var displayName: String {
         switch self {
+        case .a3: return "A3"
         case .a4: return "A4"
+        case .a5: return "A5"
+        case .b4: return "B4 (JIS)"
+        case .b5: return "B5 (JIS)"
         case .letter: return "Letter"
-        case .fitImage: return "Fit image"
+        case .fitImage: return "画像に合わせる"
         }
     }
 
     /// Portrait dimensions in points. `fitImage` has no fixed size and
     /// returns nil so the generator can size each page to its image.
+    /// B-series use JIS sizes, which are standard in Japan.
     var portraitSize: CGSize? {
         switch self {
-        case .a4: return CGSize(width: 595.2, height: 841.8)
+        case .a3: return mm(297, 420)
+        case .a4: return mm(210, 297)
+        case .a5: return mm(148, 210)
+        case .b4: return mm(257, 364)
+        case .b5: return mm(182, 257)
         case .letter: return CGSize(width: 612, height: 792)
         case .fitImage: return nil
         }
+    }
+
+    /// Converts millimetre dimensions to PDF points (72 pt per inch).
+    private func mm(_ width: CGFloat, _ height: CGFloat) -> CGSize {
+        let pointsPerMM = 72.0 / 25.4
+        return CGSize(width: width * pointsPerMM, height: height * pointsPerMM)
     }
 }
 

@@ -29,6 +29,7 @@ final class DocumentModel: ObservableObject {
     @Published var showPageNumbers: Bool = true
     @Published var showImageNumbers: Bool = true
     @Published var alignment: ImageAlignment = .center
+    @Published var fillCells: Bool = false
 
     @Published var isImporting = false
 
@@ -43,7 +44,8 @@ final class DocumentModel: ObservableObject {
             spacing: CGFloat(spacing),
             showPageNumbers: showPageNumbers,
             showImageNumbers: showImageNumbers,
-            alignment: alignment
+            alignment: alignment,
+            fillCells: fillCells
         )
     }
 
