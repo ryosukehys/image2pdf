@@ -46,9 +46,9 @@ enum PageOrientation: String, CaseIterable, Identifiable {
 
     var displayName: String {
         switch self {
-        case .auto: return "Auto"
-        case .portrait: return "Portrait"
-        case .landscape: return "Landscape"
+        case .auto: return "自動"
+        case .portrait: return "縦"
+        case .landscape: return "横"
         }
     }
 }
