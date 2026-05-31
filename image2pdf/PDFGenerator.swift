@@ -140,23 +140,23 @@ enum PDFGenerator {
     /// is drawn over the image and never changes its size.
     private static func drawImageNumberBadge(_ number: Int, in imageRect: CGRect) {
         let text = "\(number)" as NSString
-        let fontSize = max(9, min(imageRect.width, imageRect.height) * 0.07)
+        let fontSize = max(7, min(imageRect.width, imageRect.height) * 0.045)
         let attributes: [NSAttributedString.Key: Any] = [
-            .font: UIFont.boldSystemFont(ofSize: fontSize),
-            .foregroundColor: UIColor.white
+            .font: UIFont.systemFont(ofSize: fontSize, weight: .regular),
+            .foregroundColor: UIColor.white.withAlphaComponent(0.85)
         ]
 
         let textSize = text.size(withAttributes: attributes)
-        let padding = fontSize * 0.4
+        let padding = fontSize * 0.3
         let badgeSize = max(textSize.width, textSize.height) + padding * 2
-        let inset = fontSize * 0.4
+        let inset = fontSize * 0.35
         let badgeRect = CGRect(x: imageRect.maxX - inset - badgeSize,
                                y: imageRect.maxY - inset - badgeSize,
                                width: badgeSize,
                                height: badgeSize)
 
         let badgePath = UIBezierPath(roundedRect: badgeRect, cornerRadius: badgeSize * 0.25)
-        UIColor.black.withAlphaComponent(0.55).setFill()
+        UIColor.black.withAlphaComponent(0.3).setFill()
         badgePath.fill()
 
         let textOrigin = CGPoint(x: badgeRect.midX - textSize.width / 2,
