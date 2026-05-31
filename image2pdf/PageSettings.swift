@@ -36,6 +36,9 @@ enum PageSize: String, CaseIterable, Identifiable {
 }
 
 enum PageOrientation: String, CaseIterable, Identifiable {
+    /// Pick portrait or landscape per page, whichever fits the images with the
+    /// least wasted whitespace.
+    case auto
     case portrait
     case landscape
 
@@ -43,6 +46,7 @@ enum PageOrientation: String, CaseIterable, Identifiable {
 
     var displayName: String {
         switch self {
+        case .auto: return "Auto"
         case .portrait: return "Portrait"
         case .landscape: return "Landscape"
         }
