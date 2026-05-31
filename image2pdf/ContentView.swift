@@ -104,6 +104,8 @@ struct ContentView: View {
                         Slider(value: $model.spacing, in: 0...48, step: 2)
                     }
                 }
+
+                Toggle("Page numbers", isOn: $model.showPageNumbers)
             }
 
             Section {
