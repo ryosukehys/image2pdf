@@ -31,11 +31,13 @@ enum PDFGenerator {
         guard !images.isEmpty else { return nil }
 
         let perPage = options.layout.imagesPerPage
-        let (rows, cols) = options.layout.grid(for: options.orientation)
 
-        // Default page rect. For `.fitImage` each page is sized individually,
-        // so this initial bounds is just a placeholder that we override per page.
-        let defaultRect = CGRect(origin: .zero, size: pageSize(for: options, sampleImage: images.first))
+        // Placeholder bounds for the renderer; the real bounds are set per page
+        // since each page may have its own orientation (Auto) or size (Fit image).
+        let defaultRect = CGRect(origin: .zero,
+                                 size: pageSize(for: options,
+                                                orientation: resolvedOrientation(options.orientation),
+                                                sampleImage: images.first))
 
         let format = UIGraphicsPDFRendererFormat()
         let renderer = UIGraphicsPDFRenderer(bounds: defaultRect, format: format)
@@ -50,9 +52,13 @@ enum PDFGenerator {
                 let pageImages = Array(images[index..<upper])
                 pageNumber += 1
 
+                // Decide this page's orientation (Auto picks the one with the
+                // least whitespace) and derive its grid and bounds from it.
+                let orientation = bestOrientation(for: pageImages, options: options)
+                let (rows, cols) = options.layout.grid(for: orientation)
                 let pageRect = pageRectForPage(firstImage: pageImages.first,
                                                options: options,
-                                               fallback: defaultRect)
+                                               orientation: orientation)
 
                 context.beginPage(withBounds: pageRect, pageInfo: [:])
 
@@ -80,13 +86,55 @@ enum PDFGenerator {
         return data
     }
 
+    // MARK: - Orientation
+
+    /// Falls back to portrait when the orientation is `.auto`; used when a
+    /// concrete orientation is needed but no images are available to evaluate.
+    private static func resolvedOrientation(_ orientation: PageOrientation) -> PageOrientation {
+        orientation == .auto ? .portrait : orientation
+    }
+
+    /// Returns the orientation to use for a page. For `.auto`, evaluates both
+    /// portrait and landscape and keeps the one that lets the images cover more
+    /// of the page (i.e. leaves the least whitespace).
+    private static func bestOrientation(for images: [UIImage], options: Options) -> PageOrientation {
+        guard options.orientation == .auto else { return options.orientation }
+        // Fit-image pages already hug the image, so orientation is irrelevant.
+        guard options.pageSize.portraitSize != nil else { return .portrait }
+
+        let portrait = coverage(of: images, options: options, orientation: .portrait)
+        let landscape = coverage(of: images, options: options, orientation: .landscape)
+        return landscape > portrait ? .landscape : .portrait
+    }
+
+    /// Total drawn image area for a given orientation. Higher means less wasted
+    /// whitespace. Page area is identical between portrait and landscape for a
+    /// fixed paper size, so comparing summed areas is a fair measure.
+    private static func coverage(of images: [UIImage],
+                                 options: Options,
+                                 orientation: PageOrientation) -> CGFloat {
+        let pageRect = CGRect(origin: .zero,
+                              size: pageSize(for: options, orientation: orientation, sampleImage: images.first))
+        let (rows, cols) = options.layout.grid(for: orientation)
+        let cell = cellSize(in: pageRect, rows: rows, cols: cols,
+                            margin: options.margin, spacing: options.spacing)
+        let cellRect = CGRect(origin: .zero, size: cell)
+
+        return images.reduce(0) { sum, image in
+            let target = aspectFitRect(for: image.pixelSize, in: cellRect)
+            return sum + target.width * target.height
+        }
+    }
+
     // MARK: - Page sizing
 
-    private static func pageSize(for options: Options, sampleImage: UIImage?) -> CGSize {
+    private static func pageSize(for options: Options,
+                                 orientation: PageOrientation,
+                                 sampleImage: UIImage?) -> CGSize {
         if let size = options.pageSize.portraitSize {
-            return options.orientation == .portrait
-                ? size
-                : CGSize(width: size.height, height: size.width)
+            return orientation == .landscape
+                ? CGSize(width: size.height, height: size.width)
+                : size
         }
         // Fit-image mode: use the sample image's pixel size, with a sane fallback.
         let imageSize = sampleImage?.pixelSize ?? CGSize(width: 595.2, height: 841.8)
@@ -95,10 +143,22 @@ enum PDFGenerator {
 
     private static func pageRectForPage(firstImage: UIImage?,
                                         options: Options,
-                                        fallback: CGRect) -> CGRect {
-        guard options.pageSize == .fitImage else { return fallback }
-        let size = pageSize(for: options, sampleImage: firstImage)
+                                        orientation: PageOrientation) -> CGRect {
+        let size = pageSize(for: options, orientation: orientation, sampleImage: firstImage)
         return CGRect(origin: .zero, size: size)
+    }
+
+    /// Size of a single grid cell within the page's content area.
+    private static func cellSize(in pageRect: CGRect,
+                                 rows: Int,
+                                 cols: Int,
+                                 margin: CGFloat,
+                                 spacing: CGFloat) -> CGSize {
+        let contentWidth = max(pageRect.width - margin * 2, 1)
+        let contentHeight = max(pageRect.height - margin * 2, 1)
+        let cellWidth = (contentWidth - spacing * CGFloat(cols - 1)) / CGFloat(cols)
+        let cellHeight = (contentHeight - spacing * CGFloat(rows - 1)) / CGFloat(rows)
+        return CGSize(width: cellWidth, height: cellHeight)
     }
 
     // MARK: - Drawing
@@ -111,11 +171,9 @@ enum PDFGenerator {
                              spacing: CGFloat,
                              startIndex: Int,
                              showImageNumbers: Bool) {
-        let contentWidth = max(pageRect.width - margin * 2, 1)
-        let contentHeight = max(pageRect.height - margin * 2, 1)
-
-        let cellWidth = (contentWidth - spacing * CGFloat(cols - 1)) / CGFloat(cols)
-        let cellHeight = (contentHeight - spacing * CGFloat(rows - 1)) / CGFloat(rows)
+        let cell = cellSize(in: pageRect, rows: rows, cols: cols, margin: margin, spacing: spacing)
+        let cellWidth = cell.width
+        let cellHeight = cell.height
 
         for (i, image) in images.enumerated() {
             let row = i / cols

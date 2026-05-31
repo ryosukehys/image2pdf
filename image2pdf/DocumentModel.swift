@@ -22,7 +22,7 @@ final class DocumentModel: ObservableObject {
     @Published var images: [SelectedImage] = []
 
     @Published var pageSize: PageSize = .a4
-    @Published var orientation: PageOrientation = .portrait
+    @Published var orientation: PageOrientation = .auto
     @Published var layout: PageLayout = .one
     @Published var margin: Double = 24
     @Published var spacing: Double = 12
