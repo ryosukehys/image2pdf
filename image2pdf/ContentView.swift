@@ -106,6 +106,7 @@ struct ContentView: View {
                 }
 
                 Toggle("Page numbers", isOn: $model.showPageNumbers)
+                Toggle("Order numbers on photos", isOn: $model.showImageNumbers)
             }
 
             Section {

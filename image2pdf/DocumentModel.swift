@@ -27,6 +27,7 @@ final class DocumentModel: ObservableObject {
     @Published var margin: Double = 24
     @Published var spacing: Double = 12
     @Published var showPageNumbers: Bool = true
+    @Published var showImageNumbers: Bool = true
 
     @Published var isImporting = false
 
@@ -39,7 +40,8 @@ final class DocumentModel: ObservableObject {
             layout: layout,
             margin: CGFloat(margin),
             spacing: CGFloat(spacing),
-            showPageNumbers: showPageNumbers
+            showPageNumbers: showPageNumbers,
+            showImageNumbers: showImageNumbers
         )
     }
 
