@@ -6,6 +6,7 @@
 //  the resulting PDF.
 //
 
+import Combine
 import PhotosUI
 import SwiftUI
 
