@@ -135,7 +135,7 @@ enum PDFGenerator {
         }
     }
 
-    /// Draws a small numbered badge in the top-left corner of an image so the
+    /// Draws a small numbered badge in the bottom-right corner of an image so the
     /// reading order is obvious even with several images on one page. The badge
     /// is drawn over the image and never changes its size.
     private static func drawImageNumberBadge(_ number: Int, in imageRect: CGRect) {
@@ -150,8 +150,8 @@ enum PDFGenerator {
         let padding = fontSize * 0.4
         let badgeSize = max(textSize.width, textSize.height) + padding * 2
         let inset = fontSize * 0.4
-        let badgeRect = CGRect(x: imageRect.minX + inset,
-                               y: imageRect.minY + inset,
+        let badgeRect = CGRect(x: imageRect.maxX - inset - badgeSize,
+                               y: imageRect.maxY - inset - badgeSize,
                                width: badgeSize,
                                height: badgeSize)
 
