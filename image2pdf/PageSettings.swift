@@ -53,6 +53,36 @@ enum PageOrientation: String, CaseIterable, Identifiable {
     }
 }
 
+/// Where each image sits inside its cell when it doesn't fill the cell, i.e.
+/// which way the leftover whitespace is pushed.
+enum ImageAlignment: String, CaseIterable, Identifiable {
+    case center
+    case topLeft
+    case top
+    case left
+
+    var id: String { rawValue }
+
+    var displayName: String {
+        switch self {
+        case .center: return "中央"
+        case .topLeft: return "左上"
+        case .top: return "上"
+        case .left: return "左"
+        }
+    }
+
+    /// Horizontal/vertical anchor factors: 0 = leading/top, 0.5 = center, 1 = trailing/bottom.
+    var anchor: (horizontal: CGFloat, vertical: CGFloat) {
+        switch self {
+        case .center: return (0.5, 0.5)
+        case .topLeft: return (0, 0)
+        case .top: return (0.5, 0)
+        case .left: return (0, 0.5)
+        }
+    }
+}
+
 /// How many images are placed on a single page, and the grid used to arrange them.
 enum PageLayout: Int, CaseIterable, Identifiable {
     case one = 1
