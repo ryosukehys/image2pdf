@@ -1,0 +1,133 @@
+//
+//  PDFGenerator.swift
+//  image2pdf
+//
+//  Renders an array of images into a single PDF document.
+//
+
+import PDFKit
+import UIKit
+
+enum PDFGenerator {
+
+    struct Options {
+        var pageSize: PageSize = .a4
+        var orientation: PageOrientation = .portrait
+        var layout: PageLayout = .one
+        /// Outer page margin in points.
+        var margin: CGFloat = 24
+        /// Gap between cells in points.
+        var spacing: CGFloat = 12
+        var backgroundColor: UIColor = .white
+    }
+
+    /// Builds PDF data from the given images. Returns nil when there are no images.
+    static func makePDF(from images: [UIImage], options: Options) -> Data? {
+        guard !images.isEmpty else { return nil }
+
+        let perPage = options.layout.imagesPerPage
+        let (rows, cols) = options.layout.grid(for: options.orientation)
+
+        // Default page rect. For `.fitImage` each page is sized individually,
+        // so this initial bounds is just a placeholder that we override per page.
+        let defaultRect = CGRect(origin: .zero, size: pageSize(for: options, sampleImage: images.first))
+
+        let format = UIGraphicsPDFRendererFormat()
+        let renderer = UIGraphicsPDFRenderer(bounds: defaultRect, format: format)
+
+        let data = renderer.pdfData { context in
+            var index = 0
+            while index < images.count {
+                let upper = min(index + perPage, images.count)
+                let pageImages = Array(images[index..<upper])
+
+                let pageRect = pageRectForPage(firstImage: pageImages.first,
+                                               options: options,
+                                               fallback: defaultRect)
+
+                context.beginPage(withBounds: pageRect, pageInfo: [:])
+
+                options.backgroundColor.setFill()
+                context.fill(pageRect)
+
+                draw(images: pageImages,
+                     in: pageRect,
+                     rows: rows,
+                     cols: cols,
+                     margin: options.margin,
+                     spacing: options.spacing)
+
+                index = upper
+            }
+        }
+        return data
+    }
+
+    // MARK: - Page sizing
+
+    private static func pageSize(for options: Options, sampleImage: UIImage?) -> CGSize {
+        if let size = options.pageSize.portraitSize {
+            return options.orientation == .portrait
+                ? size
+                : CGSize(width: size.height, height: size.width)
+        }
+        // Fit-image mode: use the sample image's pixel size, with a sane fallback.
+        let imageSize = sampleImage?.pixelSize ?? CGSize(width: 595.2, height: 841.8)
+        return imageSize
+    }
+
+    private static func pageRectForPage(firstImage: UIImage?,
+                                        options: Options,
+                                        fallback: CGRect) -> CGRect {
+        guard options.pageSize == .fitImage else { return fallback }
+        let size = pageSize(for: options, sampleImage: firstImage)
+        return CGRect(origin: .zero, size: size)
+    }
+
+    // MARK: - Drawing
+
+    private static func draw(images: [UIImage],
+                             in pageRect: CGRect,
+                             rows: Int,
+                             cols: Int,
+                             margin: CGFloat,
+                             spacing: CGFloat) {
+        let contentWidth = max(pageRect.width - margin * 2, 1)
+        let contentHeight = max(pageRect.height - margin * 2, 1)
+
+        let cellWidth = (contentWidth - spacing * CGFloat(cols - 1)) / CGFloat(cols)
+        let cellHeight = (contentHeight - spacing * CGFloat(rows - 1)) / CGFloat(rows)
+
+        for (i, image) in images.enumerated() {
+            let row = i / cols
+            let col = i % cols
+
+            let cellX = margin + CGFloat(col) * (cellWidth + spacing)
+            let cellY = margin + CGFloat(row) * (cellHeight + spacing)
+            let cell = CGRect(x: cellX, y: cellY, width: cellWidth, height: cellHeight)
+
+            let target = aspectFitRect(for: image.pixelSize, in: cell)
+            image.draw(in: target)
+        }
+    }
+
+    /// Returns the rect that fits `imageSize` inside `bounds` while preserving
+    /// aspect ratio and centering the result.
+    private static func aspectFitRect(for imageSize: CGSize, in bounds: CGRect) -> CGRect {
+        guard imageSize.width > 0, imageSize.height > 0 else { return bounds }
+        let scale = min(bounds.width / imageSize.width, bounds.height / imageSize.height)
+        let width = imageSize.width * scale
+        let height = imageSize.height * scale
+        let x = bounds.midX - width / 2
+        let y = bounds.midY - height / 2
+        return CGRect(x: x, y: y, width: width, height: height)
+    }
+}
+
+private extension UIImage {
+    /// Size in points adjusted for the image scale so EXIF/Retina images
+    /// keep their true aspect ratio when drawn into a PDF.
+    var pixelSize: CGSize {
+        CGSize(width: size.width * scale, height: size.height * scale)
+    }
+}
