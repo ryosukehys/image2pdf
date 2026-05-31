@@ -19,6 +19,8 @@ enum PDFGenerator {
         /// Gap between cells in points.
         var spacing: CGFloat = 12
         var backgroundColor: UIColor = .white
+        /// Draw a small page number in the bottom-right corner of each page.
+        var showPageNumbers: Bool = true
     }
 
     /// Builds PDF data from the given images. Returns nil when there are no images.
@@ -35,11 +37,15 @@ enum PDFGenerator {
         let format = UIGraphicsPDFRendererFormat()
         let renderer = UIGraphicsPDFRenderer(bounds: defaultRect, format: format)
 
+        let totalPages = (images.count + perPage - 1) / perPage
+
         let data = renderer.pdfData { context in
             var index = 0
+            var pageNumber = 0
             while index < images.count {
                 let upper = min(index + perPage, images.count)
                 let pageImages = Array(images[index..<upper])
+                pageNumber += 1
 
                 let pageRect = pageRectForPage(firstImage: pageImages.first,
                                                options: options,
@@ -56,6 +62,12 @@ enum PDFGenerator {
                      cols: cols,
                      margin: options.margin,
                      spacing: options.spacing)
+
+                // Drawn last so it sits on top, and computed independently of the
+                // image cells so it never changes the printed image sizes.
+                if options.showPageNumbers {
+                    drawPageNumber(pageNumber, of: totalPages, in: pageRect)
+                }
 
                 index = upper
             }
@@ -109,6 +121,25 @@ enum PDFGenerator {
             let target = aspectFitRect(for: image.pixelSize, in: cell)
             image.draw(in: target)
         }
+    }
+
+    /// Draws a small "page / total" label in the bottom-right corner. This is
+    /// overlaid on top of the page and uses a fixed inset from the page edges,
+    /// so it is completely independent of the image layout and never alters the
+    /// size or position of the printed images.
+    private static func drawPageNumber(_ page: Int, of total: Int, in pageRect: CGRect) {
+        let text = "\(page) / \(total)" as NSString
+        let fontSize = max(8, min(pageRect.width, pageRect.height) * 0.018)
+        let attributes: [NSAttributedString.Key: Any] = [
+            .font: UIFont.systemFont(ofSize: fontSize),
+            .foregroundColor: UIColor.gray
+        ]
+
+        let textSize = text.size(withAttributes: attributes)
+        let inset: CGFloat = fontSize
+        let origin = CGPoint(x: pageRect.maxX - inset - textSize.width,
+                             y: pageRect.maxY - inset - textSize.height)
+        text.draw(at: origin, withAttributes: attributes)
     }
 
     /// Returns the rect that fits `imageSize` inside `bounds` while preserving

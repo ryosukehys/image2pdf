@@ -28,11 +28,14 @@ struct ContentView: View {
             .navigationTitle("Image → PDF")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar { toolbarContent }
-            .onChange(of: pickerItems) { newItems in
-                Task {
-                    await model.load(items: newItems)
-                    pickerItems = []
-                }
+            .task(id: pickerItems) {
+                // Runs whenever the picker selection changes. The empty initial
+                // value is a no-op (load returns early), so this only does work
+                // after the user picks photos. Using `.task(id:)` avoids the
+                // `onChange(of:)` closure form deprecated on iOS 17+/iPadOS 18.
+                guard !pickerItems.isEmpty else { return }
+                await model.load(items: pickerItems)
+                pickerItems = []
             }
             .sheet(isPresented: $showingPreview) {
                 PreviewSheet(model: model, documentName: documentName)
@@ -101,6 +104,8 @@ struct ContentView: View {
                         Slider(value: $model.spacing, in: 0...48, step: 2)
                     }
                 }
+
+                Toggle("Page numbers", isOn: $model.showPageNumbers)
             }
 
             Section {
