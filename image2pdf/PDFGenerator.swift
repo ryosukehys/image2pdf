@@ -21,6 +21,9 @@ enum PDFGenerator {
         var backgroundColor: UIColor = .white
         /// Draw a small page number in the bottom-right corner of each page.
         var showPageNumbers: Bool = true
+        /// Draw a small sequence-number badge on each image so the order stays
+        /// clear even when several photos share a page.
+        var showImageNumbers: Bool = true
     }
 
     /// Builds PDF data from the given images. Returns nil when there are no images.
@@ -61,7 +64,9 @@ enum PDFGenerator {
                      rows: rows,
                      cols: cols,
                      margin: options.margin,
-                     spacing: options.spacing)
+                     spacing: options.spacing,
+                     startIndex: index,
+                     showImageNumbers: options.showImageNumbers)
 
                 // Drawn last so it sits on top, and computed independently of the
                 // image cells so it never changes the printed image sizes.
@@ -103,7 +108,9 @@ enum PDFGenerator {
                              rows: Int,
                              cols: Int,
                              margin: CGFloat,
-                             spacing: CGFloat) {
+                             spacing: CGFloat,
+                             startIndex: Int,
+                             showImageNumbers: Bool) {
         let contentWidth = max(pageRect.width - margin * 2, 1)
         let contentHeight = max(pageRect.height - margin * 2, 1)
 
@@ -120,7 +127,41 @@ enum PDFGenerator {
 
             let target = aspectFitRect(for: image.pixelSize, in: cell)
             image.draw(in: target)
+
+            // Overlaid on top of the image; does not affect the image size.
+            if showImageNumbers {
+                drawImageNumberBadge(startIndex + i + 1, in: target)
+            }
         }
+    }
+
+    /// Draws a small numbered badge in the bottom-right corner of an image so the
+    /// reading order is obvious even with several images on one page. The badge
+    /// is drawn over the image and never changes its size.
+    private static func drawImageNumberBadge(_ number: Int, in imageRect: CGRect) {
+        let text = "\(number)" as NSString
+        let fontSize = max(9, min(imageRect.width, imageRect.height) * 0.07)
+        let attributes: [NSAttributedString.Key: Any] = [
+            .font: UIFont.boldSystemFont(ofSize: fontSize),
+            .foregroundColor: UIColor.white
+        ]
+
+        let textSize = text.size(withAttributes: attributes)
+        let padding = fontSize * 0.4
+        let badgeSize = max(textSize.width, textSize.height) + padding * 2
+        let inset = fontSize * 0.4
+        let badgeRect = CGRect(x: imageRect.maxX - inset - badgeSize,
+                               y: imageRect.maxY - inset - badgeSize,
+                               width: badgeSize,
+                               height: badgeSize)
+
+        let badgePath = UIBezierPath(roundedRect: badgeRect, cornerRadius: badgeSize * 0.25)
+        UIColor.black.withAlphaComponent(0.55).setFill()
+        badgePath.fill()
+
+        let textOrigin = CGPoint(x: badgeRect.midX - textSize.width / 2,
+                                 y: badgeRect.midY - textSize.height / 2)
+        text.draw(at: textOrigin, withAttributes: attributes)
     }
 
     /// Draws a small "page / total" label in the bottom-right corner. This is
